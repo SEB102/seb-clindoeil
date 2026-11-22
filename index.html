@@ -39,6 +39,10 @@
   /* Plein écran : seule l'image animée reste visible */
   .vid:fullscreen, .vid:-webkit-full-screen, .vid.pseudo-fs { position:fixed; inset:0; z-index:50; width:100vw; max-width:none; height:100vh; border-radius:0; background:#000; display:flex; align-items:center; justify-content:center; }
   .vid:fullscreen canvas, .vid:-webkit-full-screen canvas, .vid.pseudo-fs canvas { width:min(100vw, calc(100vh * 4 / 3)); height:min(100vh, calc(100vw * 3 / 4)); }
+  /* Icône discrète pour quitter le plein écran (en bas à droite) */
+  #exit-fs { display:none; }
+  .vid:fullscreen #exit-fs, .vid:-webkit-full-screen #exit-fs, .vid.pseudo-fs #exit-fs { display:flex; align-items:center; justify-content:center; position:absolute; right:14px; bottom:14px; z-index:7; width:38px; height:38px; padding:0; opacity:.45; background:rgba(0,0,0,.55); color:#fff; border-color:rgba(255,255,255,.35); }
+  #exit-fs:hover, #exit-fs:focus-visible { opacity:1; }
   footer { position:fixed; left:0; right:0; bottom:0; z-index:5; background:var(--bg); border-top:1px solid #2a2d38; padding:8px 12px; text-align:center; color:var(--mut); font-size:12px; letter-spacing:.08em; line-height:1.7; }
   footer a { color:#a9b6ff; text-decoration:underline; text-underline-offset:3px; }
   footer a:hover { color:#fff; }
@@ -51,6 +55,7 @@
     <video id="video" playsinline muted style="display:none"></video>
     <canvas id="view" width="640" height="480"></canvas>
     <div class="flash" id="flash"></div>
+    <button id="exit-fs" type="button" title="Quitter le plein écran" aria-label="Quitter le plein écran"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6"/></svg></button>
   </div>
   <div class="panel">
     <button class="main" id="start" hidden>Réessayer</button>
@@ -180,23 +185,25 @@ for (const key of Object.keys(slots)) {
 $('mode').onchange = e => { mode = e.target.value; det.reset(); };
 $('th').oninput = e => { const v = +e.target.value; det.high = v; det.low = v * 0.6; $('thV').textContent = v.toFixed(2); };
 $('vol').oninput = e => { volume = +e.target.value; $('volV').textContent = volume.toFixed(2); };
-// Plein écran : l'image seule. Échap pour quitter ; sur iPhone (pas de plein écran d'élément) : mode plein cadre, toucher l'image pour quitter.
+// Plein écran : l'image seule. L'app S'OUVRE en plein cadre (navigateur : plein écran réel impossible sans geste).
+// Sortie : petite icône en bas à droite (ou Échap). Le bouton « ⛶ Plein écran » du panneau passe en vrai plein écran.
 const vidBox = document.querySelector('.vid');
 const fsActive = () => document.fullscreenElement || document.webkitFullscreenElement || vidBox.classList.contains('pseudo-fs');
+function exitFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
+  vidBox.classList.remove('pseudo-fs');
+}
 function toggleFullscreen() {
-  if (fsActive()) {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
-    vidBox.classList.remove('pseudo-fs');
-    return;
-  }
+  if (fsActive()) { exitFullscreen(); return; }
   const req = vidBox.requestFullscreen || vidBox.webkitRequestFullscreen;
   if (req) { try { const r = req.call(vidBox); if (r && r.catch) r.catch(() => vidBox.classList.add('pseudo-fs')); } catch (e) { vidBox.classList.add('pseudo-fs'); } }
   else vidBox.classList.add('pseudo-fs');
 }
+vidBox.classList.add('pseudo-fs');                       // ouverture en plein cadre
 $('fs').onclick = toggleFullscreen;
-vidBox.addEventListener('dblclick', () => { if (fsActive()) toggleFullscreen(); });
-vidBox.addEventListener('click', () => { if (vidBox.classList.contains('pseudo-fs')) toggleFullscreen(); });
+$('exit-fs').onclick = exitFullscreen;
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && vidBox.classList.contains('pseudo-fs')) exitFullscreen(); });
 $('face').onclick = () => { faceIdx = 1 - faceIdx; P = FACES[faceIdx]; $('face').textContent = 'Visage ' + (faceIdx + 1); };
 $('showcam').onchange = e => { showCam = e.target.checked; };
 
@@ -292,6 +299,7 @@ async function start() {
     running = true; status(actx.state === 'running' ? 'Clignez des yeux' : 'Cliquez dans la page pour activer le son');
   } catch (err) {
     status('Erreur : ' + (err && err.message || err));
+    vidBox.classList.remove('pseudo-fs');
     $('start').hidden = false;
   }
 }
@@ -327,6 +335,11 @@ function frame() {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, view.width, view.height);
   } else {
     drawEyes();
+  }
+  if (running && actx && actx.state !== 'running') {
+    ctx.save(); ctx.font = 'bold 20px -apple-system, system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.strokeText('Cliquez pour activer le son', view.width / 2, view.height - 24);
+    ctx.fillStyle = '#ffd24a'; ctx.fillText('Cliquez pour activer le son', view.width / 2, view.height - 24); ctx.restore();
   }
   requestAnimationFrame(frame);
 }
