@@ -221,9 +221,9 @@ function drawEye(cx, cy, closure) {
 }
 function drawEyes() {
   ctx.fillStyle = '#f1cfb6'; ctx.fillRect(0, 0, view.width, view.height);
-  // image miroir : l'œil gauche de l'utilisateur est dessiné à droite
-  drawEye(180, 260, scoreR);
-  drawEye(460, 260, scoreL);
+  // image miroir : l'œil gauche de l'utilisateur est dessiné à gauche
+  drawEye(180, 260, scoreL);
+  drawEye(460, 260, scoreR);
 }
 
 // ── Détection ────────────────────────────────────────────────────────────
