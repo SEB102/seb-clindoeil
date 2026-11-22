@@ -142,6 +142,7 @@ function play(key) {
   const src = a.createBufferSource(); src.buffer = s.buf;
   const g = a.createGain(); g.gain.value = volume;
   src.connect(g).connect(a.destination); src.start();
+  if (key === 'open') return;   // le tom (réouverture des paupières) n'allume pas le flash de couleur
   const f = $('flash'); f.classList.add('on');
   requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on')));
 }
