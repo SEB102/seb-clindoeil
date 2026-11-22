@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { BlinkDetector, blinkScore, encodeWav, makeDefaultSampleData, makeTomSampleData } = require('./clindoeil-core.js');
+const { BlinkDetector, blinkScore, encodeWav, makeDefaultSampleData, makeTomSampleData, gazeScores } = require('./clindoeil-core.js');
 
 // Un clignement = un seul déclenchement
 let d = new BlinkDetector({ high: 0.5, low: 0.3, refractoryMs: 150 });
@@ -34,4 +34,7 @@ const ev = [0, 0.8, 0.6, 0.2, 0.1].map((v, i) => d.update(v, i * 200));
 assert.deepStrictEqual(ev, [null, 'close', null, 'open', null]);
 const tom = makeTomSampleData(44100);
 assert.ok(tom.some(v => Math.abs(v) > 0.3) && !tom.some(Number.isNaN));
+const bsv = { eyeLookOutLeft: 0.8, eyeLookInRight: 0.6, eyeLookInLeft: 0.0, eyeLookOutRight: 0.1 };
+const gs = gazeScores(n => bsv[n] || 0);
+assert.ok(gs.left > 0.6 && gs.right < 0.1);
 console.log('OK');

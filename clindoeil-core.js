@@ -141,7 +141,14 @@
     return wet;
   }
 
-  const api = { BlinkDetector, blinkScore, encodeWav, makeDefaultSampleData, makeTomSampleData };
+  // Regard : renvoie { left, right } (0..1) à partir de la table de blendshapes.
+  function gazeScores(get) {
+    const left  = (get('eyeLookOutLeft') + get('eyeLookInRight')) / 2;
+    const right = (get('eyeLookInLeft') + get('eyeLookOutRight')) / 2;
+    return { left, right };
+  }
+
+  const api = { BlinkDetector, blinkScore, encodeWav, makeDefaultSampleData, makeTomSampleData, gazeScores };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Clindoeil = api;
 })(typeof window !== 'undefined' ? window : globalThis);

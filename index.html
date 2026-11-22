@@ -76,7 +76,7 @@
 <script src="clindoeil-core.js"></script>
 <script type="module">
 import { FaceLandmarker, FilesetResolver } from "./vision_bundle.mjs";
-const { BlinkDetector, blinkScore, encodeWav, makeDefaultSampleData, makeTomSampleData } = Clindoeil;
+const { BlinkDetector, blinkScore, encodeWav, makeDefaultSampleData, makeTomSampleData, gazeScores } = Clindoeil;
 
 const $ = id => document.getElementById(id);
 const video = $('video'), view = $('view'), ctx = view.getContext('2d');
@@ -85,7 +85,7 @@ const status = t => $('status').textContent = t;
 let actx = null;
 const det = new BlinkDetector({ high: 0.5, low: 0.3, refractoryMs: 150 });
 let mode = 'both', volume = 0.8, showCam = false;
-let scoreL = 0, scoreR = 0;
+let scoreL = 0, scoreR = 0, gazeX = 0;
 
 // Deux sons : kick à la fermeture des paupières, tom à la réouverture
 const slots = {
@@ -164,7 +164,7 @@ $('vol').oninput = e => { volume = +e.target.value; $('volV').textContent = volu
 $('showcam').onchange = e => { showCam = e.target.checked; };
 
 // ── Yeux dessinés (image caméra masquée) ─────────────────────────────────
-function drawEye(cx, cy, closure) {
+function drawEye(cx, cy, closure, gx) {
   const w = 125, h = 88;
   const ctrlOpen = cy - 2 * h;
   const lidCtrl = ctrlOpen + closure * 3.8 * h;       // bord de la paupière
@@ -179,11 +179,12 @@ function drawEye(cx, cy, closure) {
   // globe oculaire
   ctx.save(); almond(); ctx.clip();
   ctx.fillStyle = '#f6f6f2'; ctx.fillRect(cx - w, cy - 2 * h, 2 * w, 4 * h);
-  ctx.beginPath(); ctx.arc(cx, cy + 2, 52, 0, Math.PI * 2); ctx.fillStyle = '#3b82c4'; ctx.fill();
-  ctx.beginPath(); ctx.arc(cx, cy + 2, 40, 0, Math.PI * 2); ctx.fillStyle = '#2a66a3'; ctx.fill();
-  ctx.beginPath(); ctx.arc(cx, cy + 2, 22, 0, Math.PI * 2); ctx.fillStyle = '#05070a'; ctx.fill();
-  ctx.beginPath(); ctx.arc(cx - 16, cy - 16, 11, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fill();
-  ctx.beginPath(); ctx.arc(cx + 14, cy + 16, 5, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fill();
+  const ox = cx + gx * 48;                                // l'iris suit le regard
+  ctx.beginPath(); ctx.arc(ox, cy + 2, 52, 0, Math.PI * 2); ctx.fillStyle = '#3b82c4'; ctx.fill();
+  ctx.beginPath(); ctx.arc(ox, cy + 2, 40, 0, Math.PI * 2); ctx.fillStyle = '#2a66a3'; ctx.fill();
+  ctx.beginPath(); ctx.arc(ox, cy + 2, 22, 0, Math.PI * 2); ctx.fillStyle = '#05070a'; ctx.fill();
+  ctx.beginPath(); ctx.arc(ox - 16, cy - 16, 11, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(ox + 14, cy + 16, 5, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fill();
   // paupière supérieure (peau), du pli jusqu'au bord mobile
   ctx.beginPath();
   ctx.moveTo(cx - w - 6, cy);
@@ -222,8 +223,8 @@ function drawEye(cx, cy, closure) {
 function drawEyes() {
   ctx.fillStyle = '#f1cfb6'; ctx.fillRect(0, 0, view.width, view.height);
   // image miroir : l'œil gauche de l'utilisateur est dessiné à gauche
-  drawEye(180, 260, scoreL);
-  drawEye(460, 260, scoreR);
+  drawEye(180, 260, scoreL, gazeX);
+  drawEye(460, 260, scoreR, gazeX);
 }
 
 // ── Détection ────────────────────────────────────────────────────────────
@@ -262,6 +263,11 @@ function frame() {
       const get = n => (bs.categories.find(c => c.categoryName === n) || {}).score || 0;
       scoreL = get('eyeBlinkLeft'); scoreR = get('eyeBlinkRight');
       $('barL').style.width = (scoreL * 100) + '%'; $('barR').style.width = (scoreR * 100) + '%';
+      // regard (affichage seulement, aucun son) : figé quand les yeux sont fermés
+      if (Math.max(scoreL, scoreR) < 0.35) {
+        const g = gazeScores(get);
+        gazeX = Math.max(-1, Math.min(1, (g.right - g.left) * 1.6));
+      }
       const ev = det.update(blinkScore(scoreL, scoreR, mode), now);
       if (ev === 'close') play('close');
       else if (ev === 'open') play('open');
